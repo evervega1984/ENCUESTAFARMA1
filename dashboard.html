@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QUIMFA · Mercado Tirzepatida · Dashboard en Tiempo Real</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --quimfa-blue: #003366;
+    --quimfa-mid: #0055a4;
+    --quimfa-light: #e8f0f8;
+    --quimfa-green: #007a4c;
+    --quimfa-orange: #e07b00;
+    --quimfa-gray: #f4f6fa;
+    --quimfa-border: #d0dae8;
+    --text-dark: #1a2a3a;
+    --text-mid: #4a5a70;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--quimfa-gray);
+    color: #000000;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  header {
+    background: var(--quimfa-blue);
+    padding: 0 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .logo-badge {
+    background: white;
+    color: var(--quimfa-blue);
+    font-weight: 800;
+    font-size: 18px;
+    padding: 4px 14px;
+    border-radius: 6px;
+    letter-spacing: 1px;
+  }
+  .header-title { color: white; font-size: 15px; font-weight: 400; opacity: 0.85; }
+  .header-title strong { font-weight: 700; }
+  .live-badge {
+    display: flex; align-items: center; gap: 7px;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 20px;
+    padding: 5px 14px;
+    color: #7fffb2;
+    font-size: 12px; font-weight: 600; letter-spacing: .5px;
+  }
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #7fffb2;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50% { opacity:.5; transform:scale(1.4); }
+  }
+
+  /* TABS */
+  .tabs-bar {
+    background: white;
+    border-bottom: 2px solid var(--quimfa-border);
+    padding: 0 32px;
+    display: flex; gap: 0;
+  }
+  .tab-btn {
+    padding: 14px 24px;
+    border: none; background: none; cursor: pointer;
+    font-size: 13px; font-weight: 600; color: #000000;
+    border-bottom: 3px solid transparent; margin-bottom: -2px;
+    transition: all .2s;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .tab-btn.active {
+    color: var(--quimfa-blue);
+    border-bottom-color: var(--quimfa-blue);
+  }
+  .tab-btn:hover:not(.active) { color: var(--quimfa-mid); background: var(--quimfa-light); }
+  .tab-icon { font-size: 15px; }
+
+  /* SECTIONS */
+  .section { display: none; padding: 28px 32px; }
+  .section.active { display: block; }
+
+  /* META BAR */
+  .meta-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .section-title { font-size: 18px; font-weight: 700; color: #000000; }
+  .section-sub { font-size: 13px; color: #000000; margin-top: 2px; }
+  .update-info { font-size: 12px; color: #000000; }
+
+  /* KPI CARDS */
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi-card {
+    background: white; border-radius: 10px;
+    border: 1px solid var(--quimfa-border);
+    padding: 20px 22px;
+    display: flex; flex-direction: column;
+    position: relative; overflow: hidden;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+    border-radius: 10px 0 0 10px;
+  }
+  .kpi-card.blue::before { background: var(--quimfa-blue); }
+  .kpi-card.green::before { background: var(--quimfa-green); }
+  .kpi-card.orange::before { background: var(--quimfa-orange); }
+  .kpi-card.mid::before { background: var(--quimfa-mid); }
+  .kpi-label { font-size: 11px; font-weight: 600; color: #000000; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px; }
+  .kpi-value { font-size: 30px; font-weight: 800; color: var(--quimfa-blue); line-height: 1; }
+  .kpi-sub { font-size: 12px; color: #000000; margin-top: 6px; }
+  .kpi-trend { font-size: 12px; font-weight: 600; margin-top: 4px; }
+  .kpi-trend.up { color: var(--quimfa-green); }
+  .kpi-trend.neutral { color: var(--quimfa-orange); }
+
+  /* CHARTS GRID */
+  .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+  .chart-card {
+    background: white; border-radius: 10px;
+    border: 1px solid var(--quimfa-border);
+    padding: 20px 22px;
+  }
+  .chart-card.wide { grid-column: 1 / -1; }
+  .chart-title { font-size: 13px; font-weight: 700; color: #000000; margin-bottom: 4px; }
+  .chart-sub { font-size: 11px; color: #000000; margin-bottom: 16px; }
+  .chart-wrap { position: relative; min-height: 200px; }
+
+  /* PROGRESS BARS */
+  .bar-list { display: flex; flex-direction: column; gap: 10px; }
+  .bar-item { display: flex; align-items: center; gap: 10px; }
+  .bar-label { font-size: 12px; color: #000000; width: 130px; flex-shrink: 0; font-weight: 500; }
+  .bar-outer { flex: 1; background: var(--quimfa-border); border-radius: 4px; height: 10px; overflow: hidden; }
+  .bar-inner { height: 100%; border-radius: 4px; transition: width .8s; }
+  .bar-pct { font-size: 12px; font-weight: 700; color: #000000; width: 38px; text-align: right; }
+
+  /* TABLE */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th { background: var(--quimfa-light); color: #000000; font-weight: 700; padding: 10px 14px; text-align: left; border-bottom: 2px solid var(--quimfa-border); }
+  .data-table td { padding: 10px 14px; border-bottom: 1px solid var(--quimfa-border); color: #000000; }
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--quimfa-light); }
+  .pill {
+    display: inline-block; padding: 2px 10px; border-radius: 12px;
+    font-size: 11px; font-weight: 600;
+  }
+  .pill.up { background: #e6f9ef; color: #007a4c; }
+  .pill.stable { background: #fff4e0; color: #e07b00; }
+
+  .alert-box {
+    background: #e8f0f8; border: 1px solid var(--quimfa-mid);
+    border-radius: 8px; padding: 14px 18px;
+    font-size: 13px; color: #000000; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  footer {
+    text-align: center; padding: 18px;
+    font-size: 11px; color: #000000;
+    border-top: 1px solid var(--quimfa-border);
+    background: white; margin-top: 12px;
+  }
+
+  @media (max-width: 900px) {
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .charts-grid { grid-template-columns: 1fr; }
+    .section { padding: 16px; }
+    header { padding: 0 16px; }
+    .tabs-bar { padding: 0 8px; overflow-x: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo-badge">QUIMFA</div>
+    <div>
+      <div class="header-title"><strong>Mercado Tirzepatida · Ciudad del Este</strong></div>
+      <div class="header-title">Estudio de Mercado — Dashboard de Seguimiento</div>
+    </div>
+  </div>
+  <div class="live-badge"><div class="live-dot"></div>EN VIVO · Toma II</div>
+</header>
+
+<div class="tabs-bar">
+  <button class="tab-btn active" onclick="showTab('macro')" id="tab-macro">
+    <span class="tab-icon">🔵</span> Resultados Macro — Tiempo Real
+  </button>
+  <button class="tab-btn" onclick="showTab('completo')" id="tab-completo">
+    <span class="tab-icon">🟢</span> Análisis Completo Final
+  </button>
+  <button class="tab-btn" onclick="showTab('farmacias')" id="tab-farmacias">
+    <span class="tab-icon">🏪</span> Por Farmacia
+  </button>
+</div>
+
+<!-- ======== TAB 1: MACRO ======== -->
+<section class="section active" id="sect-macro">
+  <div class="meta-bar">
+    <div>
+      <div class="section-title">🔵 Resultados en Tiempo Real — Indicadores Macro</div>
+      <div class="section-sub">Toma I completada · Toma II en curso · Datos actualizados desde Google Forms</div>
+    </div>
+    <div class="update-info">⏱ Última actualización: <strong>Toma I — Marzo 2026</strong></div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi-card blue">
+      <div class="kpi-label">Encuestas Módulo B</div>
+      <div class="kpi-value">289</div>
+      <div class="kpi-sub">Clientes encuestados en salida</div>
+      <div class="kpi-trend up">↑ 7 farmacias cubiertas</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Compraron Tirzepatida</div>
+      <div class="kpi-value">98,3%</div>
+      <div class="kpi-sub">284 de 289 encuestados</div>
+      <div class="kpi-trend up">↑ Demanda muy alta</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">Clientes/día estimados CDE</div>
+      <div class="kpi-value">~30K</div>
+      <div class="kpi-sub">Extrapolado 50 farmacias</div>
+      <div class="kpi-trend up">↑ Tendencia en aumento</div>
+    </div>
+    <div class="kpi-card mid">
+      <div class="kpi-label">Entrevistas Módulo A</div>
+      <div class="kpi-value">10</div>
+      <div class="kpi-sub">Informantes clave relevados</div>
+      <div class="kpi-trend neutral">→ 7 locales distintos</div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">Participación de Mercado por Marca</div>
+      <div class="chart-sub">% de compras registradas en Módulo B (n=284)</div>
+      <div class="chart-wrap" style="height:220px">
+        <canvas id="chartMarcas"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Motivo Principal de Uso</div>
+      <div class="chart-sub">Declarado por el cliente al momento de compra</div>
+      <div class="chart-wrap" style="height:220px">
+        <canvas id="chartMotivo"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">¿Quién Recomendó el Producto?</div>
+      <div class="chart-sub">Canal de prescripción / recomendación</div>
+      <div class="chart-wrap" style="height:220px">
+        <canvas id="chartRecomendacion"></canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Percepción del Precio</div>
+      <div class="chart-sub">¿Cómo considera el cliente el precio de Tirzepatida?</div>
+      <div class="chart-wrap" style="height:220px">
+        <canvas id="chartPrecio"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">Frecuencia de Compra</div>
+      <div class="chart-sub">¿Con qué frecuencia adquiere el producto?</div>
+      <div class="bar-list" style="margin-top:8px">
+        <div class="bar-item">
+          <div class="bar-label">Cada 2–3 meses</div>
+          <div class="bar-outer"><div class="bar-inner" style="width:30.4%;background:#003366"></div></div>
+          <div class="bar-pct">30,4%</div>
+        </div>
+        <div class="bar-item">
+          <div class="bar-label">Ocasionalmente</div>
+          <div class="bar-outer"><div class="bar-inner" style="width:29.1%;background:#0055a4"></div></div>
+          <div class="bar-pct">29,1%</div>
+        </div>
+        <div class="bar-item">
+          <div class="bar-label">Cada mes</div>
+          <div class="bar-outer"><div class="bar-inner" style="width:25.6%;background:#2b7fd4"></div></div>
+          <div class="bar-pct">25,6%</div>
+        </div>
+        <div class="bar-item">
+          <div class="bar-label">Primera compra</div>
+          <div class="bar-outer"><div class="bar-inner" style="width:12.5%;background:#7ab3e0"></div></div>
+          <div class="bar-pct">12,5%</div>
+        </div>
+        <div class="bar-item">
+          <div class="bar-label">Cada semana</div>
+          <div class="bar-outer"><div class="bar-inner" style="width:0.7%;background:#b3d3f0"></div></div>
+          <div class="bar-pct">0,7%</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-title">Perfil del Comprador</div>
+      <div class="chart-sub">Módulo B — datos demográficos clave</div>
+      <div class="bar-list" style="margin-top:8px">
+        <div class="bar-item">
+          <div class="bar-label">🇧🇷 Brasileros</div>
+          <div class="bar-outer"><div class="bar-inner" style="width:88.2%;background:#009c3b"></div></div>
+          <div class="bar-pct">88,2%</div>
+        </div>
+        <div class="bar-item">
+          <div class="bar-label">🇵🇾 Paraguayos</div>
+          <div class="bar-outer"><div class="bar-inner" style="width:10.4%;background:#0038a8"></div></div>
+          <div class="bar-pct">10,4%</div>
+        </div>
+        <div class="bar-item">
+          <div class="bar-label">🇦🇷 Argentinos</div>
+          <div class="bar-outer"><div class="bar-inner" style="width:1.4%;background:#74acdf"></div></div>
+          <div class="bar-pct">1,4%</div>
+        </div>
+        <div class="bar-item" style="margin-top:16px">
+          <div class="bar-label">♀ Mujeres</div>
+          <div class="bar-outer"><div class="bar-inner" style="width:59.5%;background:#b03060"></div></div>
+          <div class="bar-pct">59,5%</div>
+        </div>
+        <div class="bar-item">
+          <div class="bar-label">♂ Hombres</div>
+          <div class="bar-outer"><div class="bar-inner" style="width:40.5%;background:#003366"></div></div>
+          <div class="bar-pct">40,5%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======== TAB 2: COMPLETO ======== -->
+<section class="section" id="sect-completo">
+  <div class="meta-bar">
+    <div>
+      <div class="section-title">🟢 Análisis Completo Final — Toma I</div>
+      <div class="section-sub">Módulos A + B + C consolidados · Extrapolación CDE</div>
+    </div>
+  </div>
+
+  <div class="alert-box">
+    ℹ️ Los datos de Toma II se integrarán automáticamente al completar la recolección. Las cifras actuales corresponden a Toma I (Marzo 2026).
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi-card blue">
+      <div class="kpi-label">Cajas/semana (muestra)</div>
+      <div class="kpi-value">58.230</div>
+      <div class="kpi-sub">7 farmacias relevadas · Módulo C</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Ventas USD/semana (muestra)</div>
+      <div class="kpi-value">$420K</div>
+      <div class="kpi-sub">Suma de los 7 locales</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">Proyección CDE/mes</div>
+      <div class="kpi-value">$62M</div>
+      <div class="kpi-sub">Estimado 50 farmacias</div>
+    </div>
+    <div class="kpi-card mid">
+      <div class="kpi-label">Tendencia de Demanda</div>
+      <div class="kpi-value">↑100%</div>
+      <div class="kpi-sub">Todos los locales reportan aumento</div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card wide">
+      <div class="chart-title">Ventas Semanales por Farmacia — Módulo C (Cajas)</div>
+      <div class="chart-sub">Comparativo de volumen entre los 7 locales relevados en Toma I</div>
+      <div class="chart-wrap" style="height:240px">
+        <canvas id="chartVentasFarm"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:20px">
+    <div class="chart-title">Factores de Decisión de Compra</div>
+    <div class="chart-sub">¿Qué influyó más en la decisión del cliente? (Módulo B, n=284)</div>
+    <div class="bar-list" style="margin-top:12px">
+      <div class="bar-item">
+        <div class="bar-label">Resultados pérdida de peso</div>
+        <div class="bar-outer"><div class="bar-inner" style="width:55.3%;background:#003366"></div></div>
+        <div class="bar-pct">55,3%</div>
+      </div>
+      <div class="bar-item">
+        <div class="bar-label">Recomendación médica</div>
+        <div class="bar-outer"><div class="bar-inner" style="width:37%;background:#0055a4"></div></div>
+        <div class="bar-pct">37,0%</div>
+      </div>
+      <div class="bar-item">
+        <div class="bar-label">Control de glucosa</div>
+        <div class="bar-outer"><div class="bar-inner" style="width:4.6%;background:#2b7fd4"></div></div>
+        <div class="bar-pct">4,6%</div>
+      </div>
+      <div class="bar-item">
+        <div class="bar-label">Opiniones / terceros</div>
+        <div class="bar-outer"><div class="bar-inner" style="width:1.8%;background:#7ab3e0"></div></div>
+        <div class="bar-pct">1,8%</div>
+      </div>
+      <div class="bar-item">
+        <div class="bar-label">Precio</div>
+        <div class="bar-outer"><div class="bar-inner" style="width:1.4%;background:#b3d3f0"></div></div>
+        <div class="bar-pct">1,4%</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ======== TAB 3: FARMACIAS ======== -->
+<section class="section" id="sect-farmacias">
+  <div class="meta-bar">
+    <div>
+      <div class="section-title">🏪 Detalle por Farmacia — Módulos A + B + C</div>
+      <div class="section-sub">Toma I · 7 locales relevados en Ciudad del Este</div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:20px;overflow-x:auto">
+    <div class="chart-title">Resumen por Local</div>
+    <div class="chart-sub">Datos consolidados de los tres módulos de recolección</div>
+    <table class="data-table" style="margin-top:12px">
+      <thead>
+        <tr>
+          <th>Farmacia</th>
+          <th>Cajas/sem (C)</th>
+          <th>Clientes Tir./día</th>
+          <th>Tend. Demanda</th>
+          <th>Marcas disponibles</th>
+          <th>Encuestas B</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Cellshop</strong></td><td>36.000</td><td>2.000–20.000</td><td><span class="pill up">↑ Aumentó</span></td><td>Tirzec, T.G., Gluconex, Lipoless, Tirzedral</td><td>43</td><td><span class="pill up">Activo</span></td></tr>
+        <tr><td><strong>Farm. Triunfo</strong></td><td>9.000</td><td>300–500</td><td><span class="pill stable">→ Mantiene</span></td><td>Tirzec, T.G., Gluconex, Lipoless, Tirzedral</td><td>44</td><td><span class="pill up">Activo</span></td></tr>
+        <tr><td><strong>Farm. Columbia</strong></td><td>3.300</td><td>300–550</td><td><span class="pill up">↑ Aumentó</span></td><td>Tirzec, T.G., Gluconex, Lipoless, Tirzedral</td><td>41</td><td><span class="pill up">Activo</span></td></tr>
+        <tr><td><strong>Farm. Brasil</strong></td><td>2.550</td><td>50</td><td><span class="pill up">↑ Aumentó</span></td><td>Tirzec, T.G., Gluconex, Lipoless, Tirzedral, Lipoland</td><td>40</td><td><span class="pill up">Activo</span></td></tr>
+        <tr><td><strong>Shopping China</strong></td><td>3.600</td><td>150–200</td><td><span class="pill up">↑ Aumentó</span></td><td>Tirzec, T.G., Gluconex, Lipoless, Tirzedral</td><td>40</td><td><span class="pill stable">Escasez esporádica</span></td></tr>
+        <tr><td><strong>Farm. Do Sul</strong></td><td>3.240</td><td>120–180</td><td><span class="pill up">↑ Aumentó</span></td><td>Tirzec, T.G., Gluconex, Lipoless</td><td>40</td><td><span class="pill up">Activo</span></td></tr>
+        <tr><td><strong>Farmacia Pink</strong></td><td>540</td><td>20–30</td><td><span class="pill up">↑ Aumentó</span></td><td>Tirzec, T.G., Gluconex, Lipoless, Lipoland</td><td>41</td><td><span class="pill up">Activo</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="chart-title">Distribución de Encuestas por Local</div>
+      <div class="chart-sub">Módulo B — cobertura uniforme entre locales</div>
+      <div class="chart-wrap" style="height:220px">
+        <canvas id="chartEncuestasFarm"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Cajas/Semana por Farmacia</div>
+      <div class="chart-sub">Módulo C · Volumen de ventas semanal</div>
+      <div class="chart-wrap" style="height:220px">
+        <canvas id="chartCajasLoc"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <strong>QUIMFA S.A.</strong> · Estudio de Mercado Tirzepatida — Ciudad del Este, Paraguay · Abril 2026 &nbsp;|&nbsp; 
+  Desarrollado por <strong>Arvi EAS</strong> · Dashboard v1.0 · Toma I completa · Toma II en preparación
+</footer>
+
+<script>
+// ==================== PALETA DE COLORES AUTOMÁTICA ====================
+const colorPalette = {
+  primary: '#003366',
+  secondary: '#0055a4',
+  accent: '#007a4c',
+  warning: '#e07b00',
+  danger: '#c0392b',
+  
+  categoryColors: [
+    '#003366', '#0055a4', '#2b7fd4', '#007a4c', '#e07b00',
+    '#9b59b6', '#e74c3c', '#1abc9c', '#f39c12', '#3498db',
+    '#16a085', '#c0392b', '#2980b9', '#8e44ad', '#d35400'
+  ],
+  
+  getColor(index) {
+    return this.categoryColors[index % this.categoryColors.length];
+  }
+};
+
+function getAutoColors(count) {
+  const colors = [];
+  for (let i = 0; i < count; i++) {
+    colors.push(colorPalette.getColor(i));
+  }
+  return colors;
+}
+
+// ==================== CONFIGURACIÓN DE TEXTO NEGRO PARA TODOS LOS GRÁFICOS ====================
+const chartTextOptions = {
+  color: '#000000',
+  font: { size: 11, weight: 'bold' }
+};
+
+const axisTextOptions = {
+  ticks: { color: '#000000', font: { size: 11, weight: '500' } },
+  title: { color: '#000000', font: { size: 10, weight: 'bold' } },
+  grid: { color: '#e8eef5' }
+};
+
+// ==================== DESTRUIR GRÁFICOS EXISTENTES ====================
+let charts = {};
+
+function destroyChart(chartId) {
+  if (charts[chartId]) {
+    charts[chartId].destroy();
+    delete charts[chartId];
+  }
+}
+
+// ==================== TAB 1: GRÁFICOS CON COLORES AUTOMÁTICOS Y TEXTO NEGRO ====================
+function initTab1Charts() {
+  // Gráfico de Marcas (Doughnut)
+  destroyChart('chartMarcas');
+  const marcasData = [102, 91, 58, 25, 6, 2];
+  const marcasLabels = ['T.G.', 'Lipoless', 'Tirzec', 'Tirzedral', 'Gluconex', 'Otros'];
+  charts.chartMarcas = new Chart(document.getElementById('chartMarcas'), {
+    type: 'doughnut',
+    data: {
+      labels: marcasLabels,
+      datasets: [{
+        data: marcasData,
+        backgroundColor: getAutoColors(marcasLabels.length),
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { 
+          position: 'right', 
+          labels: { color: '#000000', font: { size: 11, weight: 'bold' }, boxWidth: 12, padding: 10 } 
+        },
+        tooltip: { 
+          bodyColor: '#000000',
+          titleColor: '#000000',
+          callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw} compras (${((ctx.raw / 284) * 100).toFixed(1)}%)` } 
+        }
+      }
+    }
+  });
+
+  // Gráfico de Motivo (Barra)
+  destroyChart('chartMotivo');
+  const motivoData = [208, 38, 31, 7];
+  const motivoLabels = ['Pérdida de peso', 'Recom. médica', 'Diabetes tipo 2', 'Otros'];
+  charts.chartMotivo = new Chart(document.getElementById('chartMotivo'), {
+    type: 'bar',
+    data: {
+      labels: motivoLabels,
+      datasets: [{
+        data: motivoData,
+        backgroundColor: getAutoColors(motivoLabels.length),
+        borderRadius: 6,
+        barPercentage: 0.65
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { 
+        legend: { display: false },
+        tooltip: { bodyColor: '#000000', titleColor: '#000000', callbacks: { label: (ctx) => `${ctx.raw} clientes (${((ctx.raw / 284) * 100).toFixed(1)}%)` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#000000', font: { size: 11, weight: 'bold' } } },
+        y: { ...axisTextOptions, title: { display: true, text: 'Número de clientes', color: '#000000', font: { size: 10, weight: 'bold' } } }
+      }
+    }
+  });
+
+  // Gráfico de Recomendación (Horizontal Bar)
+  destroyChart('chartRecomendacion');
+  const recoData = [124, 70, 56, 26, 8];
+  const recoLabels = ['Endocrinólogo', 'Amigo/familiar', 'Médico clínico', 'Decisión propia', 'Otros'];
+  charts.chartRecomendacion = new Chart(document.getElementById('chartRecomendacion'), {
+    type: 'bar',
+    data: {
+      labels: recoLabels,
+      datasets: [{
+        data: recoData,
+        backgroundColor: getAutoColors(recoLabels.length),
+        borderRadius: 6
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { 
+        legend: { display: false },
+        tooltip: { bodyColor: '#000000', titleColor: '#000000', callbacks: { label: (ctx) => `${ctx.raw} respuestas (${((ctx.raw / 284) * 100).toFixed(1)}%)` } }
+      },
+      scales: {
+        x: { ...axisTextOptions, title: { display: true, text: 'Número de respuestas', color: '#000000', font: { size: 10, weight: 'bold' } } },
+        y: { grid: { display: false }, ticks: { color: '#000000', font: { size: 11, weight: 'bold' } } }
+      }
+    }
+  });
+
+  // Gráfico de Precio (Doughnut)
+  destroyChart('chartPrecio');
+  const precioData = [142, 74, 16, 43, 9];
+  const precioLabels = ['Adecuado', 'Barato', 'Muy barato', 'Caro', 'Muy Caro'];
+  charts.chartPrecio = new Chart(document.getElementById('chartPrecio'), {
+    type: 'doughnut',
+    data: {
+      labels: precioLabels,
+      datasets: [{
+        data: precioData,
+        backgroundColor: [colorPalette.accent, colorPalette.secondary, '#7ab3e0', colorPalette.warning, colorPalette.danger],
+        borderWidth: 2,
+        borderColor: '#fff'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { 
+          position: 'right', 
+          labels: { color: '#000000', font: { size: 11, weight: 'bold' }, boxWidth: 12, padding: 10 } 
+        },
+        tooltip: { 
+          bodyColor: '#000000',
+          titleColor: '#000000',
+          callbacks: { label: (ctx) => `${ctx.label}: ${ctx.raw} clientes (${((ctx.raw / 284) * 100).toFixed(1)}%)` } 
+        }
+      }
+    }
+  });
+}
+
+// ==================== TAB 2: GRÁFICO COMPLETO ====================
+function renderCompletoCharts() {
+  if (charts.chartVentasFarm) return;
+  
+  const farmLabels = ['Cellshop', 'Farm. Triunfo', 'Shop. China', 'Farm. Do Sul', 'Farm. Columbia', 'Farm. Brasil', 'Farm. Pink'];
+  const farmData = [36000, 9000, 3600, 3240, 3300, 2550, 540];
+  
+  charts.chartVentasFarm = new Chart(document.getElementById('chartVentasFarm'), {
+    type: 'bar',
+    data: {
+      labels: farmLabels,
+      datasets: [{
+        label: 'Cajas/semana',
+        data: farmData,
+        backgroundColor: getAutoColors(farmLabels.length),
+        borderRadius: 6,
+        barPercentage: 0.7
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { 
+        legend: { labels: { color: '#000000', font: { size: 11, weight: 'bold' } } },
+        tooltip: { bodyColor: '#000000', titleColor: '#000000', callbacks: { label: (ctx) => `${ctx.raw.toLocaleString()} cajas` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#000000', font: { size: 11, weight: 'bold' }, rotate: 25 } },
+        y: { ...axisTextOptions, ticks: { color: '#000000', font: { size: 11 }, callback: v => v >= 1000 ? (v/1000) + 'K' : v }, title: { display: true, text: 'Cajas por semana', color: '#000000', font: { size: 10, weight: 'bold' } } }
+      }
+    }
+  });
+}
+
+// ==================== TAB 3: GRÁFICOS POR FARMACIA ====================
+function renderFarmCharts() {
+  if (charts.chartEncuestasFarm) return;
+  
+  const farmNames = ['Triunfo', 'Cellshop', 'Columbia', 'Pink', 'Shop. China', 'Brasil', 'Do Sul'];
+  const encuestasData = [44, 43, 41, 41, 40, 40, 40];
+  const cajasData = [36000, 9000, 3300, 3600, 3240, 2550, 540];
+  const cajasLabels = ['Cellshop', 'Triunfo', 'Columbia', 'Shop. China', 'Do Sul', 'Brasil', 'Pink'];
+  
+  charts.chartEncuestasFarm = new Chart(document.getElementById('chartEncuestasFarm'), {
+    type: 'bar',
+    data: {
+      labels: farmNames,
+      datasets: [{
+        label: 'Encuestas realizadas',
+        data: encuestasData,
+        backgroundColor: getAutoColors(farmNames.length),
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { 
+        legend: { labels: { color: '#000000', font: { size: 11, weight: 'bold' } } },
+        tooltip: { bodyColor: '#000000', titleColor: '#000000', callbacks: { label: (ctx) => `${ctx.raw} encuestas` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#000000', font: { size: 10, weight: 'bold' }, rotate: 25 } },
+        y: { ...axisTextOptions, title: { display: true, text: 'Número de encuestas', color: '#000000', font: { size: 10, weight: 'bold' } } }
+      }
+    }
+  });
+  
+  charts.chartCajasLoc = new Chart(document.getElementById('chartCajasLoc'), {
+    type: 'bar',
+    data: {
+      labels: cajasLabels,
+      datasets: [{
+        label: 'Cajas/semana',
+        data: cajasData,
+        backgroundColor: getAutoColors(cajasLabels.length),
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { 
+        legend: { labels: { color: '#000000', font: { size: 11, weight: 'bold' } } },
+        tooltip: { bodyColor: '#000000', titleColor: '#000000', callbacks: { label: (ctx) => `${ctx.raw.toLocaleString()} cajas` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#000000', font: { size: 10, weight: 'bold' }, rotate: 25 } },
+        y: { ...axisTextOptions, ticks: { color: '#000000', font: { size: 11 }, callback: v => v >= 1000 ? (v/1000) + 'K' : v }, title: { display: true, text: 'Cajas por semana', color: '#000000', font: { size: 10, weight: 'bold' } } }
+      }
+    }
+  });
+}
+
+// ==================== CONTROL DE TABS ====================
+function showTab(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sect-' + id).classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+  
+  if (id === 'farmacias') renderFarmCharts();
+  if (id === 'completo') renderCompletoCharts();
+}
+
+// ==================== INICIALIZACIÓN ====================
+document.addEventListener('DOMContentLoaded', () => {
+  initTab1Charts();
+});
+</script>
+</body>
+</html>
